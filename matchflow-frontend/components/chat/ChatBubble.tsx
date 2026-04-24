@@ -19,9 +19,9 @@ function StatusIcon({ status }: { status: Message['status'] }) {
 }
 
 export function ChatBubble({ message, isOwn, showAvatar, avatarUrl }: ChatBubbleProps) {
-  const bubbleBase = 'max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words'
-  const ownStyle = `${bubbleBase} bg-coral-gradient text-white rounded-br-sm`
-  const theirStyle = `${bubbleBase} bg-neutral-700 text-neutral-100 rounded-bl-sm`
+  const bubbleBase = 'max-w-[75%] px-4 py-2.5 rounded-[22px] text-sm leading-relaxed break-words shadow-glass'
+  const ownStyle = `${bubbleBase} bg-chat-gradient text-white rounded-br-md`
+  const theirStyle = `${bubbleBase} border border-white/10 bg-white/[0.075] text-neutral-100 rounded-bl-md backdrop-blur-xl`
 
   function renderContent() {
     if (message.messageType === 'gift' && message.metadata) {
@@ -61,7 +61,7 @@ export function ChatBubble({ message, isOwn, showAvatar, avatarUrl }: ChatBubble
       animate="animate"
     >
       {!isOwn && showAvatar && (
-        <div className="relative w-7 h-7 rounded-full overflow-hidden flex-shrink-0 mb-1">
+        <div className="relative mb-1 h-7 w-7 flex-shrink-0 overflow-hidden rounded-full border border-white/10">
           {avatarUrl ? (
             <Image src={avatarUrl} alt="" fill className="object-cover" />
           ) : (
@@ -71,7 +71,11 @@ export function ChatBubble({ message, isOwn, showAvatar, avatarUrl }: ChatBubble
       )}
       {!isOwn && !showAvatar && <div className="w-7 flex-shrink-0" />}
 
-      <div className={isOwn ? ownStyle : theirStyle}>
+      <div className={`relative overflow-hidden ${isOwn ? ownStyle : theirStyle}`}>
+        {isOwn && (
+          <div className="pointer-events-none absolute -right-6 -top-8 h-16 w-16 rounded-full bg-white/20 blur-2xl" />
+        )}
+        <div className="relative">
         {renderContent()}
         <div
           className={`flex items-center gap-1 mt-1 text-[10px] ${
@@ -85,6 +89,7 @@ export function ChatBubble({ message, isOwn, showAvatar, avatarUrl }: ChatBubble
             })}
           </span>
           {isOwn && <StatusIcon status={message.status} />}
+        </div>
         </div>
       </div>
     </motion.div>

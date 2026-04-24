@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,6 +15,11 @@
 
   body {
     @apply bg-primary text-white font-sans antialiased;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255, 75, 110, 0.24), transparent 32rem),
+      radial-gradient(circle at 78% 8%, rgba(45, 212, 191, 0.16), transparent 28rem),
+      radial-gradient(circle at 58% 78%, rgba(255, 140, 66, 0.18), transparent 30rem),
+      #08080a;
     overscroll-behavior: none;
   }
 
@@ -33,10 +38,32 @@
 
 @layer utilities {
   .bg-glass {
-    background: rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.055);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .mesh-orb {
+    background:
+      radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.18), transparent 24%),
+      linear-gradient(135deg, rgba(255, 75, 110, 0.8), rgba(255, 140, 66, 0.58), rgba(45, 212, 191, 0.42));
+    filter: blur(18px);
+  }
+
+  .text-shimmer {
+    background: linear-gradient(100deg, #fff 10%, #ffd6c9 35%, #ff4b6e 55%, #fff 80%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 4s ease-in-out infinite;
+  }
+
+  .flame-core {
+    background: radial-gradient(circle at 50% 80%, #fff4c2 0 12%, #ffb300 22%, #ff4b6e 48%, transparent 70%);
+    box-shadow: 0 0 28px rgba(255, 75, 110, 0.44);
+    animation: flame-flicker 1.6s ease-in-out infinite;
   }
 
   .safe-bottom {
@@ -50,5 +77,28 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+@keyframes flame-flicker {
+  0%,
+  100% {
+    transform: scale(1) rotate(-2deg);
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: scale(1.1) rotate(3deg);
+    opacity: 1;
   }
 }

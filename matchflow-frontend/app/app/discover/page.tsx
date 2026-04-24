@@ -37,28 +37,40 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen max-h-screen">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-12 pb-3">
-        <h1 className="font-display font-bold text-2xl text-white">
-          Match<span className="text-accent-from">Flow</span>
-        </h1>
+    <div className="relative flex h-screen max-h-screen flex-col">
+      <div className="pointer-events-none absolute inset-x-6 top-8 h-28 rounded-full bg-accent-from/18 blur-3xl" />
+
+      <div className="relative flex items-center justify-between px-5 pb-3 pt-12">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35">
+            Discovery
+          </p>
+          <h1 className="font-display text-3xl font-bold leading-none text-white">
+            Match<span className="text-shimmer">Flow</span>
+          </h1>
+        </div>
         <button
           onClick={() => setShowFilters(true)}
-          className="w-10 h-10 rounded-full bg-card border border-glass-border flex items-center justify-center text-neutral-400 hover:text-white transition-colors"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-glass text-neutral-300 shadow-glass transition-colors hover:text-white"
+          aria-label="Открыть фильтры"
         >
           ⚙️
         </button>
       </div>
 
-      {/* Swipe area */}
-      <div className="flex-1 relative px-4 pb-4 overflow-hidden">
+      <div className="relative mx-5 mb-3 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.055] px-3.5 py-2.5 text-xs text-white/70 backdrop-blur-xl">
+        <span>{profiles.length > 0 ? `${profiles.length} анкет рядом` : 'Ищем людей рядом'}</span>
+        <span className="rounded-full bg-accent-muted px-2.5 py-1 font-bold text-accent-from">
+          {Math.max(SWIPE_LIMIT_FREE - swipeCount, 0)} free likes
+        </span>
+      </div>
+
+      <div className="relative flex-1 overflow-hidden px-4 pb-4">
         <SwipeDeck onSwipe={handleSwipe} />
       </div>
 
-      {/* Action buttons */}
       {profiles.length > 0 && (
-        <div className="flex items-center justify-center gap-5 px-6 pb-6">
+        <div className="flex items-center justify-center gap-5 px-6 pb-7">
           <ActionButton
             onClick={() => {
               const top = profiles[0]
@@ -66,7 +78,7 @@ export default function DiscoverPage() {
             }}
             icon="✕"
             size="md"
-            className="bg-card border-2 border-neutral-700 text-neutral-400 hover:border-error hover:text-error"
+            className="border-2 border-white/10 bg-white/[0.07] text-neutral-300 shadow-glass hover:border-error hover:text-error"
           />
           <ActionButton
             onClick={() => {
@@ -79,7 +91,7 @@ export default function DiscoverPage() {
             }}
             icon="⭐"
             size="sm"
-            className="bg-card border-2 border-blue-500/40 text-blue-400 hover:border-blue-400"
+            className="border-2 border-sky-400/30 bg-sky-400/10 text-sky-300 shadow-[0_0_24px_rgba(56,189,248,0.18)] hover:border-sky-300"
           />
           <ActionButton
             onClick={() => {
@@ -93,10 +105,8 @@ export default function DiscoverPage() {
         </div>
       )}
 
-      {/* Match modal */}
       <MatchModal match={matchResult} onClose={clearMatch} />
 
-      {/* Paywall modal */}
       <AnimatePresence>
         {paywallReason && (
           <PaywallModal

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title MatchFlow — Stop
+title MatchFlow - Stop
 
 echo.
 echo Останавливаю контейнеры MatchFlow...

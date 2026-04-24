@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title MatchFlow — Dev
+title MatchFlow - Dev
 
 echo.
 echo ========================================
-echo   MatchFlow — Запуск Dev-окружения
+echo   MatchFlow - Запуск Dev-окружения
 echo ========================================
 echo.
 

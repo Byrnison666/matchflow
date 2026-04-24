@@ -1,10 +1,10 @@
 @echo off
 chcp 65001 >nul
-title MatchFlow — Setup
+title MatchFlow - Setup
 
 echo.
 echo ========================================
-echo   MatchFlow — Первичная настройка
+echo   MatchFlow - Первичная настройка
 echo ========================================
 echo.
 
@@ -95,7 +95,7 @@ echo Применяю миграции БД...
 cd matchflow-backend
 bun run migration:run
 if errorlevel 1 (
-    echo [ПРЕДУПРЕЖДЕНИЕ] Миграция не прошла. Если БД уже настроена — игнорируй.
+    echo [ПРЕДУПРЕЖДЕНИЕ] Миграция не прошла. Если БД уже настроена - игнорируй.
 )
 cd ..
 

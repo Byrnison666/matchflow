@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { apiClient } from '@/lib/api/client'
 import { useAuthStore } from '@/lib/store/auth.store'
+import { OAuthButtons } from '@/components/auth/OAuthButtons'
 import type { AuthResponse } from '@/lib/types'
 
 export default function RegisterPage() {
@@ -107,6 +108,8 @@ export default function RegisterPage() {
             {isLoading ? 'Создаём...' : 'Создать аккаунт'}
           </button>
         </form>
+
+        <OAuthButtons />
 
         <p className="text-neutral-600 text-xs text-center mt-4 leading-relaxed">
           Регистрируясь, ты соглашаешься с{' '}

@@ -1,7 +1,10 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
+  Param,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -10,6 +13,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { OAuthCallbackDto } from './dto/oauth-callback.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
@@ -26,6 +30,24 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Get('oauth/:provider/url')
+  getOAuthUrl(
+    @Param('provider') provider: string,
+    @Query('redirectUri') redirectUri: string,
+    @Query('state') state?: string,
+  ) {
+    return this.authService.getOAuthAuthorizationUrl(provider, redirectUri, state);
+  }
+
+  @Post('oauth/:provider/callback')
+  @HttpCode(HttpStatus.OK)
+  oauthCallback(
+    @Param('provider') provider: string,
+    @Body() dto: OAuthCallbackDto,
+  ) {
+    return this.authService.loginWithOAuth(provider, dto.code, dto.redirectUri);
   }
 
   @Post('refresh')

@@ -73,6 +73,18 @@ export class UsersService {
     await this.userRepo.update(userId, { refreshTokenHash: null });
   }
 
+  async updateAuthProfile(
+    userId: string,
+    data: Pick<Partial<User>, 'name' | 'isVerified'>,
+  ): Promise<User> {
+    await this.userRepo.update(userId, data);
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
   async getMe(userId: string): Promise<User> {
     const user = await this.userRepo.findOne({
       where: { id: userId },

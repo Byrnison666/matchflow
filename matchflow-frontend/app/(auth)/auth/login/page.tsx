@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { apiClient } from '@/lib/api/client'
 import { useAuthStore } from '@/lib/store/auth.store'
+import { OAuthButtons } from '@/components/auth/OAuthButtons'
 import type { AuthResponse } from '@/lib/types'
 
 function LoginForm() {
@@ -90,6 +91,8 @@ function LoginForm() {
             {isLoading ? 'Входим...' : 'Войти'}
           </button>
         </form>
+
+        <OAuthButtons redirect={redirect} />
 
         <p className="text-center text-neutral-500 text-sm mt-4">
           Нет аккаунта?{' '}

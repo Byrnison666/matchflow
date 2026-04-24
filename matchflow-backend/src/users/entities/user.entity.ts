@@ -78,7 +78,7 @@ export class User {
   @Column({ type: 'float', nullable: true })
   lng: number;
 
-  @Column({ select: false, nullable: true })
+  @Column({ type: 'varchar', select: false, nullable: true })
   refreshTokenHash: string | null;
 
   @CreateDateColumn()

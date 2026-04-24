@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import axios from 'axios'
 import { apiClient } from '@/lib/api/client'
 import { useAuthStore } from '@/lib/store/auth.store'
 import type { SubscriptionTier } from '@/lib/types'
@@ -61,55 +62,54 @@ const ONE_TIME = [
   { id: 'gift_pack', icon: '🎁', name: 'Пак подарков', desc: '20 монет', price: '199 ₽' },
 ]
 
-type PurchaseState = 'idle' | 'loading' | 'done' | 'error'
+type BtnState = 'idle' | 'loading' | 'error'
 
 export default function PremiumPage() {
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
-  const setUser = useAuthStore((s) => s.setUser)
-  const updateTier = useAuthStore((s) => s.updateTier)
 
   const [selected, setSelected] = useState<SubscriptionTier>('plus')
-  const [subscribeState, setSubscribeState] = useState<PurchaseState>('idle')
-  const [purchaseStates, setPurchaseStates] = useState<Record<string, PurchaseState>>({})
+  const [subscribeState, setSubscribeState] = useState<BtnState>('idle')
+  const [purchaseStates, setPurchaseStates] = useState<Record<string, BtnState>>({})
+  const [errorMsg, setErrorMsg] = useState('')
 
   async function handleSubscribe() {
     if (!user || selected === 'free') return
     setSubscribeState('loading')
+    setErrorMsg('')
     try {
-      await apiClient.post('/payments/subscribe', { tier: selected })
-      updateTier(selected)
-      setSubscribeState('done')
-      setTimeout(() => router.replace('/app/me'), 1200)
-    } catch {
+      const { data } = await apiClient.post<{ checkoutUrl: string }>('/payments/subscribe', { tier: selected })
+      window.location.href = data.checkoutUrl
+    } catch (err) {
+      const msg = axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Ошибка оплаты')
+        : 'Ошибка оплаты'
+      setErrorMsg(msg)
       setSubscribeState('error')
-      setTimeout(() => setSubscribeState('idle'), 3000)
+      setTimeout(() => setSubscribeState('idle'), 4000)
     }
   }
 
   async function handleOneTime(productId: string) {
     setPurchaseStates((s) => ({ ...s, [productId]: 'loading' }))
+    setErrorMsg('')
     try {
-      const { data } = await apiClient.post<{ success: boolean; productId: string }>(
-        '/payments/purchase',
-        { productId },
-      )
-      if (data.success && productId === 'gift_pack' && user) {
-        setUser({ ...user, coins: user.coins + 20 })
-      }
-      setPurchaseStates((s) => ({ ...s, [productId]: 'done' }))
-      setTimeout(() => setPurchaseStates((s) => ({ ...s, [productId]: 'idle' })), 2500)
-    } catch {
+      const { data } = await apiClient.post<{ checkoutUrl: string }>('/payments/purchase', { productId })
+      window.location.href = data.checkoutUrl
+    } catch (err) {
+      const msg = axios.isAxiosError(err)
+        ? (err.response?.data?.message ?? 'Ошибка оплаты')
+        : 'Ошибка оплаты'
+      setErrorMsg(msg)
       setPurchaseStates((s) => ({ ...s, [productId]: 'error' }))
-      setTimeout(() => setPurchaseStates((s) => ({ ...s, [productId]: 'idle' })), 3000)
+      setTimeout(() => setPurchaseStates((s) => ({ ...s, [productId]: 'idle' })), 4000)
     }
   }
 
   const subscribeLabel = {
     idle: `Подключить ${selected === 'gold' ? 'Gold' : 'Plus'}`,
-    loading: 'Оформляем...',
-    done: 'Подключено ✓',
-    error: 'Ошибка — попробуй ещё',
+    loading: 'Переходим к оплате...',
+    error: 'Попробуй ещё раз',
   }[subscribeState]
 
   return (
@@ -191,6 +191,10 @@ export default function PremiumPage() {
           )}
         </AnimatePresence>
 
+        {errorMsg && (
+          <p className="mb-3 text-center text-xs text-red-400">{errorMsg}</p>
+        )}
+
         <p className="mb-8 text-center text-xs text-neutral-600">
           Отменить подписку можно в любой момент. Без скрытых списаний.
         </p>
@@ -215,14 +219,10 @@ export default function PremiumPage() {
                   onClick={() => handleOneTime(item.id)}
                   disabled={state !== 'idle'}
                   className={`rounded-full px-3 py-1.5 text-xs font-bold shadow-glow transition-opacity disabled:opacity-60 ${
-                    state === 'error'
-                      ? 'bg-red-600 text-white'
-                      : state === 'done'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-coral-gradient text-white'
+                    state === 'error' ? 'bg-red-600 text-white' : 'bg-coral-gradient text-white'
                   }`}
                 >
-                  {state === 'loading' ? '...' : state === 'done' ? '✓' : state === 'error' ? 'Ошибка' : item.price}
+                  {state === 'loading' ? '...' : state === 'error' ? 'Ошибка' : item.price}
                 </button>
               </div>
             )

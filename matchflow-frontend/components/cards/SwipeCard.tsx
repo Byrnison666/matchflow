@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import { motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
 import type { Profile } from '@/lib/types'
@@ -161,4 +161,3 @@ export function SwipeCard({ profile, onSwipe, isTop, stackIndex }: SwipeCardProp
   )
 }
 
-import { useState } from 'react'

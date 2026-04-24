@@ -62,4 +62,14 @@ export class AuthController {
   logout(@CurrentUser() user: { id: string }) {
     return this.authService.logout(user.id);
   }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  changePassword(
+    @CurrentUser() user: { id: string },
+    @Body() dto: { currentPassword: string; newPassword: string },
+  ) {
+    return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
+  }
 }

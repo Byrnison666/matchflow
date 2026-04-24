@@ -7,8 +7,9 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFiles,
+  UploadedFile,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -56,5 +57,24 @@ export class UsersController {
     @Body() dto: UpdateLocationDto,
   ) {
     return this.usersService.updateLocation(user.id, dto);
+  }
+
+  @Get('me/stats')
+  getStats(@CurrentUser() user: { id: string }) {
+    return this.usersService.getStats(user.id);
+  }
+
+  @Post('me/photos')
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  replaceMainPhoto(
+    @CurrentUser() user: { id: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.usersService.replaceMainPhoto(user.id, file);
   }
 }

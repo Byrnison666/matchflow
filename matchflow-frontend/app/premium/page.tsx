@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
+import { motion, AnimatePresence } from 'framer-motion'
 import { apiClient } from '@/lib/api/client'
 import { useAuthStore } from '@/lib/store/auth.store'
 import type { SubscriptionTier } from '@/lib/types'
@@ -16,12 +15,7 @@ const PLANS = [
     period: 'навсегда',
     color: 'border-neutral-600',
     badge: '',
-    features: [
-      '20 лайков в день',
-      'Базовый чат',
-      'Стандартный поиск',
-      'Реклама',
-    ],
+    features: ['20 лайков в день', 'Базовый чат', 'Стандартный поиск', 'Реклама'],
     disabled: ['Кто лайкнул', 'Безлимитные лайки', 'Инкогнито', 'Буст', 'Суперлайки'],
   },
   {
@@ -67,51 +61,71 @@ const ONE_TIME = [
   { id: 'gift_pack', icon: '🎁', name: 'Пак подарков', desc: '20 монет', price: '199 ₽' },
 ]
 
+type PurchaseState = 'idle' | 'loading' | 'done' | 'error'
+
 export default function PremiumPage() {
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
+  const setUser = useAuthStore((s) => s.setUser)
   const updateTier = useAuthStore((s) => s.updateTier)
+
   const [selected, setSelected] = useState<SubscriptionTier>('plus')
-  const [isLoading, setIsLoading] = useState(false)
+  const [subscribeState, setSubscribeState] = useState<PurchaseState>('idle')
+  const [purchaseStates, setPurchaseStates] = useState<Record<string, PurchaseState>>({})
 
   async function handleSubscribe() {
     if (!user || selected === 'free') return
-    setIsLoading(true)
+    setSubscribeState('loading')
     try {
-      const { data } = await apiClient.post<{ checkoutUrl: string }>('/payments/subscribe', {
-        tier: selected,
-      })
-      window.location.href = data.checkoutUrl
+      await apiClient.post('/payments/subscribe', { tier: selected })
+      updateTier(selected)
+      setSubscribeState('done')
+      setTimeout(() => router.replace('/app/me'), 1200)
     } catch {
-      setIsLoading(false)
+      setSubscribeState('error')
+      setTimeout(() => setSubscribeState('idle'), 3000)
     }
   }
 
   async function handleOneTime(productId: string) {
+    setPurchaseStates((s) => ({ ...s, [productId]: 'loading' }))
     try {
-      const { data } = await apiClient.post<{ checkoutUrl: string }>('/payments/purchase', {
-        productId,
-      })
-      window.location.href = data.checkoutUrl
-    } catch {}
+      const { data } = await apiClient.post<{ success: boolean; productId: string }>(
+        '/payments/purchase',
+        { productId },
+      )
+      if (data.success && productId === 'gift_pack' && user) {
+        setUser({ ...user, coins: user.coins + 20 })
+      }
+      setPurchaseStates((s) => ({ ...s, [productId]: 'done' }))
+      setTimeout(() => setPurchaseStates((s) => ({ ...s, [productId]: 'idle' })), 2500)
+    } catch {
+      setPurchaseStates((s) => ({ ...s, [productId]: 'error' }))
+      setTimeout(() => setPurchaseStates((s) => ({ ...s, [productId]: 'idle' })), 3000)
+    }
   }
+
+  const subscribeLabel = {
+    idle: `Подключить ${selected === 'gold' ? 'Gold' : 'Plus'}`,
+    loading: 'Оформляем...',
+    done: 'Подключено ✓',
+    error: 'Ошибка — попробуй ещё',
+  }[subscribeState]
 
   return (
     <div className="min-h-screen bg-primary">
-      <div className="max-w-lg mx-auto px-5 pt-12 pb-20">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
+      <div className="mx-auto max-w-lg px-5 pb-20 pt-12">
+        <div className="mb-8 flex items-center gap-3">
           <button onClick={() => router.back()} className="text-neutral-400 hover:text-white transition-colors">
             ←
           </button>
           <div>
-            <h1 className="font-display font-bold text-2xl text-white">Premium</h1>
-            <p className="text-neutral-400 text-xs">Разблокируй все возможности</p>
+            <h1 className="font-display text-2xl font-bold text-white">Premium</h1>
+            <p className="text-xs text-neutral-400">Разблокируй все возможности</p>
           </div>
         </div>
 
-        {/* Plan cards */}
-        <div className="flex flex-col gap-4 mb-8">
+        <div className="mb-8 flex flex-col gap-4">
           {PLANS.map((plan, i) => (
             <motion.button
               key={plan.tier}
@@ -119,30 +133,34 @@ export default function PremiumPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
               onClick={() => setSelected(plan.tier)}
-              className={`relative text-left bg-card rounded-2xl p-5 border-2 transition-all ${
+              className={`relative bg-card rounded-2xl p-5 border-2 text-left transition-all ${
                 selected === plan.tier ? plan.color : 'border-transparent'
               }`}
             >
               {plan.badge && (
-                <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  plan.tier === 'gold' ? 'bg-yellow-400/20 text-yellow-400' : 'bg-blue-500/20 text-blue-400'
-                }`}>
+                <span
+                  className={`absolute right-3 top-3 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    plan.tier === 'gold'
+                      ? 'bg-yellow-400/20 text-yellow-400'
+                      : 'bg-blue-500/20 text-blue-400'
+                  }`}
+                >
                   {plan.badge}
                 </span>
               )}
 
-              <div className="flex items-baseline gap-1 mb-4">
-                <span className="font-display font-bold text-3xl text-white">{plan.price}</span>
-                {plan.price !== '0' && <span className="text-neutral-400 text-sm">₽</span>}
-                <span className="text-neutral-500 text-sm">{plan.period}</span>
+              <div className="mb-4 flex items-baseline gap-1">
+                <span className="font-display text-3xl font-bold text-white">{plan.price}</span>
+                {plan.price !== '0' && <span className="text-sm text-neutral-400">₽</span>}
+                <span className="text-sm text-neutral-500">{plan.period}</span>
               </div>
 
-              <p className="font-display font-bold text-lg text-white mb-3">{plan.name}</p>
+              <p className="mb-3 font-display text-lg font-bold text-white">{plan.name}</p>
 
               <ul className="space-y-1.5">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-neutral-300">
-                    <span className="text-success text-xs">✓</span> {f}
+                    <span className="text-xs text-success">✓</span> {f}
                   </li>
                 ))}
                 {plan.disabled.map((f) => (
@@ -155,43 +173,60 @@ export default function PremiumPage() {
           ))}
         </div>
 
-        {selected !== 'free' && (
-          <motion.button
-            key={selected}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={handleSubscribe}
-            disabled={isLoading}
-            className="w-full bg-coral-gradient text-white font-bold py-4 rounded-2xl text-base shadow-glow hover:opacity-90 transition-opacity disabled:opacity-60 mb-4"
-          >
-            {isLoading ? 'Переход к оплате...' : `Подключить ${selected === 'gold' ? 'Gold' : 'Plus'}`}
-          </motion.button>
-        )}
+        <AnimatePresence>
+          {selected !== 'free' && (
+            <motion.button
+              key={selected}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              onClick={handleSubscribe}
+              disabled={subscribeState !== 'idle'}
+              className={`mb-4 w-full rounded-2xl py-4 text-base font-bold text-white shadow-glow transition-opacity hover:opacity-90 disabled:opacity-60 ${
+                subscribeState === 'error' ? 'bg-red-600' : 'bg-coral-gradient'
+              }`}
+            >
+              {subscribeLabel}
+            </motion.button>
+          )}
+        </AnimatePresence>
 
-        <p className="text-neutral-600 text-xs text-center mb-8">
+        <p className="mb-8 text-center text-xs text-neutral-600">
           Отменить подписку можно в любой момент. Без скрытых списаний.
         </p>
 
-        {/* One-time purchases */}
-        <h2 className="font-display font-bold text-lg text-white mb-4">Разовые покупки</h2>
+        <h2 className="mb-4 font-display text-lg font-bold text-white">Разовые покупки</h2>
         <div className="flex flex-col gap-3">
-          {ONE_TIME.map((item) => (
-            <div key={item.id} className="flex items-center justify-between bg-card rounded-xl px-4 py-3.5 border border-glass-border">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{item.icon}</span>
-                <div>
-                  <p className="text-white text-sm font-semibold">{item.name}</p>
-                  <p className="text-neutral-500 text-xs">{item.desc}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => handleOneTime(item.id)}
-                className="bg-coral-gradient text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-glow"
+          {ONE_TIME.map((item) => {
+            const state = purchaseStates[item.id] ?? 'idle'
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between rounded-xl border border-glass-border bg-card px-4 py-3.5"
               >
-                {item.price}
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{item.icon}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{item.name}</p>
+                    <p className="text-xs text-neutral-500">{item.desc}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleOneTime(item.id)}
+                  disabled={state !== 'idle'}
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold shadow-glow transition-opacity disabled:opacity-60 ${
+                    state === 'error'
+                      ? 'bg-red-600 text-white'
+                      : state === 'done'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-coral-gradient text-white'
+                  }`}
+                >
+                  {state === 'loading' ? '...' : state === 'done' ? '✓' : state === 'error' ? 'Ошибка' : item.price}
+                </button>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>

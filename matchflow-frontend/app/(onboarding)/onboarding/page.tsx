@@ -215,6 +215,74 @@ function Step3({ data, onChange }: { data: Step3Data; onChange: (d: Partial<Step
 }
 
 function Step4({ onAllow }: { onAllow: () => void }) {
+  const [manual, setManual] = useState(false)
+  const [city, setCity] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [geoError, setGeoError] = useState('')
+
+  async function handleManualSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!city.trim()) return
+    setSearching(true)
+    setGeoError('')
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`,
+        { headers: { 'Accept-Language': 'ru' } },
+      )
+      const results = await res.json() as Array<{ lat: string; lon: string; display_name: string }>
+      if (!results.length) {
+        setGeoError('Город не найден. Попробуй ещё раз.')
+        return
+      }
+      const { lat, lon } = results[0]
+      await fetch('/api/location-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: parseFloat(lat), lng: parseFloat(lon) }),
+      }).catch(() => {})
+      onAllow()
+    } catch {
+      setGeoError('Ошибка поиска. Проверь подключение.')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  if (manual) {
+    return (
+      <div className="flex flex-col gap-6 items-center text-center">
+        <div className="text-6xl">📍</div>
+        <div>
+          <h2 className="font-display font-bold text-2xl text-white mb-2">Укажи город</h2>
+          <p className="text-neutral-400 text-sm leading-relaxed">
+            Введи название города — мы найдём людей рядом.
+          </p>
+        </div>
+        <form onSubmit={handleManualSubmit} className="w-full flex flex-col gap-3">
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="Москва, Санкт-Петербург..."
+            className="w-full bg-secondary border border-glass-border rounded-xl px-4 py-3 text-white text-sm placeholder:text-neutral-600 focus:outline-none focus:border-accent-from"
+          />
+          {geoError && <p className="text-xs text-red-400 text-center">{geoError}</p>}
+          <button
+            type="submit"
+            disabled={!city.trim() || searching}
+            className="w-full bg-coral-gradient text-white font-semibold py-3.5 rounded-xl text-sm shadow-glow disabled:opacity-60"
+          >
+            {searching ? 'Ищем...' : 'Подтвердить'}
+          </button>
+        </form>
+        <button onClick={() => setManual(false)} className="text-neutral-500 text-sm">
+          ← Назад
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6 items-center text-center">
       <div className="text-6xl">📍</div>
@@ -230,7 +298,9 @@ function Step4({ onAllow }: { onAllow: () => void }) {
       >
         Разрешить геолокацию
       </button>
-      <button className="text-neutral-500 text-sm">Задать вручную</button>
+      <button onClick={() => setManual(true)} className="text-neutral-500 text-sm hover:text-neutral-300 transition-colors">
+        Задать вручную
+      </button>
     </div>
   )
 }

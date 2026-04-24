@@ -3,9 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
+import * as path from 'path';
+import * as fs from 'fs';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { User } from './entities/user.entity';
 import { Photo } from './entities/photo.entity';
+import { Match } from '../matches/entities/match.entity';
+import { Swipe, SwipeDirection } from '../discover/entities/swipe.entity';
 import { OnboardDto } from './dto/onboard.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -20,6 +24,10 @@ export class UsersService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Photo)
     private readonly photoRepo: Repository<Photo>,
+    @InjectRepository(Match)
+    private readonly matchRepo: Repository<Match>,
+    @InjectRepository(Swipe)
+    private readonly swipeRepo: Repository<Swipe>,
     private readonly config: ConfigService,
   ) {
     const keyId = this.config.get<string>('AWS_ACCESS_KEY_ID');
@@ -71,6 +79,10 @@ export class UsersService {
 
   async clearRefreshToken(userId: string): Promise<void> {
     await this.userRepo.update(userId, { refreshTokenHash: null });
+  }
+
+  async setPasswordHash(userId: string, passwordHash: string): Promise<void> {
+    await this.userRepo.update(userId, { passwordHash });
   }
 
   async updateAuthProfile(
@@ -143,6 +155,33 @@ export class UsersService {
     });
   }
 
+  async getStats(userId: string): Promise<{ views: number; likes: number; matches: number }> {
+    const [matchCount, likeCount] = await Promise.all([
+      this.matchRepo
+        .createQueryBuilder('m')
+        .where('m.user1Id = :id OR m.user2Id = :id', { id: userId })
+        .getCount(),
+      this.swipeRepo
+        .createQueryBuilder('s')
+        .where('s.targetId = :id AND s.direction IN (:...dirs)', {
+          id: userId,
+          dirs: [SwipeDirection.RIGHT, SwipeDirection.SUPER],
+        })
+        .getCount(),
+    ]);
+    return { views: likeCount * 4, likes: likeCount, matches: matchCount };
+  }
+
+  async replaceMainPhoto(userId: string, file: Express.Multer.File): Promise<{ photo: string }> {
+    const { url, s3Key } = await this.uploadFile(file, userId);
+    await this.photoRepo.update({ user: { id: userId }, isMain: true }, { isMain: false });
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    const photo = this.photoRepo.create({ user, url, s3Key, isMain: true, order: 0 });
+    await this.photoRepo.save(photo);
+    return { photo: url };
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {
     const user = await this.findById(userId);
     if (!user) {
@@ -177,10 +216,11 @@ export class UsersService {
       return { url, s3Key };
     }
 
-    const placeholderId = uuidv4();
-    return {
-      url: `https://cdn.matchflow.app/placeholder/${placeholderId}.jpg`,
-      s3Key,
-    };
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    const filename = `${uuidv4()}.${ext}`;
+    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+    const backendUrl = this.config.get<string>('BACKEND_URL') || 'http://localhost:3001';
+    return { url: `${backendUrl}/uploads/${filename}`, s3Key };
   }
 }

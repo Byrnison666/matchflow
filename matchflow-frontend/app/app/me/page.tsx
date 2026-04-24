@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+import { apiClient } from '@/lib/api/client'
 import { useAuthStore } from '@/lib/store/auth.store'
+import type { User } from '@/lib/types'
 
 const TIER_LABELS = { free: 'Free', plus: 'Plus ✨', gold: 'Gold 👑' }
 const TIER_COLORS = {
@@ -14,25 +16,36 @@ const TIER_COLORS = {
   gold: 'text-yellow-400',
 }
 
-const BADGES = [
-  { icon: '✅', label: 'Верификация', earned: true },
-  { icon: '💬', label: 'Первый диалог', earned: true },
-  { icon: '❤️', label: 'Первый мэтч', earned: true },
-  { icon: '🔥', label: '7 дней подряд', earned: false },
-  { icon: '⭐', label: '10 мэтчей', earned: false },
-]
+interface Stats {
+  views: number
+  likes: number
+  matches: number
+}
 
-const STATS = [
-  { label: 'Просмотры', value: '1 248' },
-  { label: 'Лайки', value: '87' },
-  { label: 'Мэтчи', value: '23' },
-]
+function deriveBadges(user: User, stats: Stats | null) {
+  return [
+    { icon: '✅', label: 'Верификация', earned: user.isVerified },
+    { icon: '💬', label: 'Первый диалог', earned: (stats?.matches ?? 0) >= 1 },
+    { icon: '❤️', label: 'Первый мэтч', earned: (stats?.matches ?? 0) >= 1 },
+    { icon: '🔥', label: '7 дней подряд', earned: user.streakDays >= 7 },
+    { icon: '⭐', label: '10 мэтчей', earned: (stats?.matches ?? 0) >= 10 },
+  ]
+}
 
 export default function MyProfilePage() {
   const user = useAuthStore((s) => s.user)
+  const setUser = useAuthStore((s) => s.setUser)
   const logout = useAuthStore((s) => s.logout)
   const router = useRouter()
+
   const [showLogout, setShowLogout] = useState(false)
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    apiClient.get<Stats>('/users/me/stats').then(({ data }) => setStats(data)).catch(() => {})
+  }, [])
 
   if (!user) return null
 
@@ -40,6 +53,33 @@ export default function MyProfilePage() {
     logout()
     router.replace('/')
   }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const form = new FormData()
+      form.append('photo', file)
+      const { data } = await apiClient.post<{ photo: string }>('/users/me/photos', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      setUser({ ...user!, photo: data.photo })
+    } catch {
+      // silently ignore — photo stays unchanged
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const badges = deriveBadges(user, stats)
+  const displayStats = [
+    { label: 'Просмотры', value: stats ? String(stats.views) : '—' },
+    { label: 'Лайки', value: stats ? String(stats.likes) : '—' },
+    { label: 'Мэтчи', value: stats ? String(stats.matches) : '—' },
+  ]
 
   return (
     <div className="relative flex min-h-full flex-col pb-6">
@@ -73,12 +113,28 @@ export default function MyProfilePage() {
               {user.photo ? (
                 <Image src={user.photo} alt={user.name} fill className="object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl">
+                <div className="flex h-full w-full items-center justify-center text-4xl">
                   {user.name[0]}
                 </div>
               )}
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white">
+                  ...
+                </div>
+              )}
             </div>
-            <button className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary bg-accent-from text-xs text-white shadow-glow">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary bg-accent-from text-xs text-white shadow-glow disabled:opacity-60"
+            >
               ✎
             </button>
           </div>
@@ -103,7 +159,7 @@ export default function MyProfilePage() {
         <div className="col-span-2 rounded-[26px] border border-white/10 bg-card/80 p-4 shadow-glass backdrop-blur-xl">
           <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">Активность</h3>
           <div className="grid grid-cols-3 gap-2">
-            {STATS.map((s) => (
+            {displayStats.map((s) => (
               <div key={s.label} className="rounded-2xl bg-white/[0.045] p-3 text-center">
                 <p className="font-display text-2xl font-bold text-white">{s.value}</p>
                 <p className="mt-0.5 text-xs text-neutral-500">{s.label}</p>
@@ -136,16 +192,16 @@ export default function MyProfilePage() {
       <div className="mx-5 mb-4 rounded-[26px] border border-white/10 bg-card/80 p-4 shadow-glass backdrop-blur-xl">
         <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-neutral-400">Достижения</h3>
         <div className="flex flex-wrap gap-2">
-          {BADGES.map((b) => (
+          {badges.map((b) => (
             <div
               key={b.label}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
                 b.earned
-                  ? 'bg-accent-muted border-accent-from/40 text-white shadow-[0_0_18px_rgba(255,75,110,0.12)]'
-                  : 'bg-neutral-800 border-neutral-700 text-neutral-600'
+                  ? 'border-accent-from/40 bg-accent-muted text-white shadow-[0_0_18px_rgba(255,75,110,0.12)]'
+                  : 'border-neutral-700 bg-neutral-800 text-neutral-600'
               }`}
             >
-              <span className={b.earned ? '' : 'grayscale opacity-40'}>{b.icon}</span>
+              <span className={b.earned ? '' : 'opacity-40 grayscale'}>{b.icon}</span>
               {b.label}
             </div>
           ))}
@@ -154,48 +210,50 @@ export default function MyProfilePage() {
 
       <div className="mx-5 overflow-hidden rounded-[26px] border border-white/10 bg-card/80 shadow-glass backdrop-blur-xl">
         {[
-          { label: 'Редактировать профиль', icon: '✎', href: '#' },
-          { label: 'Настройки поиска', icon: '⚙️', href: '#' },
-          { label: 'Уведомления', icon: '🔔', href: '#' },
-          { label: 'Безопасность', icon: '🔒', href: '#' },
+          { label: 'Редактировать профиль', icon: '✎', href: '/app/me/edit' },
+          { label: 'Настройки поиска', icon: '⚙️', href: '/app/me/search' },
+          { label: 'Уведомления', icon: '🔔', href: '/app/me/notifications' },
+          { label: 'Безопасность', icon: '🔒', href: '/app/me/security' },
           { label: 'Premium', icon: '✨', href: '/premium' },
         ].map((item, i, arr) => (
           <Link
             key={item.label}
             href={item.href}
-            className={`flex items-center justify-between px-4 py-3.5 hover:bg-neutral-700/50 transition-colors ${
+            className={`flex items-center justify-between px-4 py-3.5 transition-colors hover:bg-neutral-700/50 ${
               i < arr.length - 1 ? 'border-b border-glass-border' : ''
             }`}
           >
             <div className="flex items-center gap-3">
-              <span className="text-lg w-6 text-center">{item.icon}</span>
-              <span className="text-white text-sm">{item.label}</span>
+              <span className="w-6 text-center text-lg">{item.icon}</span>
+              <span className="text-sm text-white">{item.label}</span>
             </div>
-            <span className="text-neutral-600 text-xs">›</span>
+            <span className="text-xs text-neutral-600">›</span>
           </Link>
         ))}
       </div>
 
-      {/* Logout confirm */}
       {showLogout && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/70" onClick={() => setShowLogout(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4"
+          onClick={() => setShowLogout(false)}
+        >
           <motion.div
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="w-full max-w-sm bg-card rounded-2xl p-5 border border-glass-border"
+            className="w-full max-w-sm rounded-2xl border border-glass-border bg-card p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-white font-semibold text-center mb-4">Выйти из аккаунта?</p>
+            <p className="mb-4 text-center font-semibold text-white">Выйти из аккаунта?</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLogout(false)}
-                className="flex-1 bg-neutral-700 text-white py-3 rounded-xl text-sm font-medium"
+                className="flex-1 rounded-xl bg-neutral-700 py-3 text-sm font-medium text-white"
               >
                 Отмена
               </button>
               <button
                 onClick={handleLogout}
-                className="flex-1 bg-error text-white py-3 rounded-xl text-sm font-semibold"
+                className="flex-1 rounded-xl bg-error py-3 text-sm font-semibold text-white"
               >
                 Выйти
               </button>

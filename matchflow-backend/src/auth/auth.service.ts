@@ -107,6 +107,23 @@ export class AuthService {
     await this.usersService.clearRefreshToken(userId);
   }
 
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.usersService.findByEmailWithPassword(
+      (await this.usersService.findById(userId))!.email,
+    );
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('Пароль не установлен (OAuth-аккаунт)');
+    }
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) throw new UnauthorizedException('Неверный текущий пароль');
+    const hash = await bcrypt.hash(newPassword, 12);
+    await this.usersService.setPasswordHash(userId, hash);
+  }
+
   getOAuthAuthorizationUrl(
     provider: string,
     redirectUri: string,

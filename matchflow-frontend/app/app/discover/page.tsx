@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SwipeDeck } from '@/components/cards/SwipeDeck'
 import { MatchModal } from '@/components/modals/MatchModal'
@@ -10,6 +10,21 @@ import { useAuthStore } from '@/lib/store/auth.store'
 import { PaywallReason } from '@/lib/types'
 
 const SWIPE_LIMIT_FREE = 20
+const FILTERS_KEY = 'matchflow:search_settings'
+
+interface Filters {
+  ageMin: number
+  ageMax: number
+  distanceKm: number
+  genderPref: 'all' | 'women' | 'men'
+}
+const FILTER_DEFAULTS: Filters = { ageMin: 18, ageMax: 45, distanceKm: 25, genderPref: 'all' }
+const DISTANCES = [5, 10, 25, 50, 100]
+const GENDER_OPTIONS: Array<{ value: Filters['genderPref']; label: string }> = [
+  { value: 'all', label: 'Все' },
+  { value: 'women', label: 'Женщины' },
+  { value: 'men', label: 'Мужчины' },
+]
 
 export default function DiscoverPage() {
   const user = useAuthStore((s) => s.user)
@@ -21,6 +36,34 @@ export default function DiscoverPage() {
   const [swipeCount, setSwipeCount] = useState(0)
   const [paywallReason, setPaywallReason] = useState<PaywallReason | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState<Filters>(FILTER_DEFAULTS)
+  const [draftFilters, setDraftFilters] = useState<Filters>(FILTER_DEFAULTS)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FILTERS_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw) as Filters
+        setFilters(saved)
+        setDraftFilters(saved)
+      }
+    } catch {}
+  }, [])
+
+  function openFilters() {
+    setDraftFilters(filters)
+    setShowFilters(true)
+  }
+
+  function applyFilters() {
+    setFilters(draftFilters)
+    localStorage.setItem(FILTERS_KEY, JSON.stringify(draftFilters))
+    setShowFilters(false)
+  }
+
+  function updateDraft<K extends keyof Filters>(key: K, value: Filters[K]) {
+    setDraftFilters((prev) => ({ ...prev, [key]: value }))
+  }
 
   function handleSwipe(direction: 'right' | 'left' | 'super') {
     if (user?.subscriptionTier === 'free' && swipeCount >= SWIPE_LIMIT_FREE) {
@@ -50,7 +93,7 @@ export default function DiscoverPage() {
           </h1>
         </div>
         <button
-          onClick={() => setShowFilters(true)}
+          onClick={openFilters}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-glass text-neutral-300 shadow-glass transition-colors hover:text-white"
           aria-label="Открыть фильтры"
         >
@@ -117,6 +160,102 @@ export default function DiscoverPage() {
               window.location.href = '/premium'
             }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4"
+            onClick={() => setShowFilters(false)}
+          >
+            <motion.div
+              initial={{ y: 60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 60, opacity: 0 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+              className="w-full max-w-lg overflow-hidden rounded-[28px] border border-white/10 bg-card p-6 shadow-premium"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="font-display text-xl font-bold text-white">Фильтры поиска</h2>
+                <button onClick={() => setShowFilters(false)} className="text-neutral-500 hover:text-white">✕</button>
+              </div>
+
+              <div className="flex flex-col gap-5">
+                <div>
+                  <p className="mb-2 text-xs font-medium text-neutral-400">Возраст</p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={18}
+                      max={draftFilters.ageMax - 1}
+                      value={draftFilters.ageMin}
+                      onChange={(e) => updateDraft('ageMin', Number(e.target.value))}
+                      className="w-full rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm text-white focus:border-accent-from focus:outline-none"
+                    />
+                    <span className="text-neutral-600">—</span>
+                    <input
+                      type="number"
+                      min={draftFilters.ageMin + 1}
+                      max={100}
+                      value={draftFilters.ageMax}
+                      onChange={(e) => updateDraft('ageMax', Number(e.target.value))}
+                      className="w-full rounded-xl border border-glass-border bg-secondary px-3 py-2.5 text-sm text-white focus:border-accent-from focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-medium text-neutral-400">Расстояние</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DISTANCES.map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => updateDraft('distanceKm', d)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          draftFilters.distanceKm === d
+                            ? 'border-accent-from bg-accent-muted text-white'
+                            : 'border-glass-border bg-secondary text-neutral-400'
+                        }`}
+                      >
+                        {d} км
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-medium text-neutral-400">Ищу</p>
+                  <div className="flex gap-2">
+                    {GENDER_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => updateDraft('genderPref', opt.value)}
+                        className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-colors ${
+                          draftFilters.genderPref === opt.value
+                            ? 'border-accent-from bg-accent-muted text-white'
+                            : 'border-glass-border bg-secondary text-neutral-400'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={applyFilters}
+                  className="mt-1 w-full rounded-2xl bg-coral-gradient py-3.5 text-sm font-bold text-white shadow-glow hover:opacity-90 transition-opacity"
+                >
+                  Применить
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

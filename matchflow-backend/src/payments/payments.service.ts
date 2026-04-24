@@ -24,17 +24,32 @@ export class PaymentsService {
   async subscribe(
     userId: string,
     dto: SubscribeDto,
-  ): Promise<{ checkoutUrl: string }> {
-    this.logger.log(`Subscribe request: userId=${userId}, tier=${dto.tier}`);
-    return { checkoutUrl: 'https://checkout.stripe.com/stub' };
+  ): Promise<{ success: boolean; tier: string }> {
+    const tierMap: Record<SubscribeTier, SubscriptionTier> = {
+      [SubscribeTier.PLUS]: SubscriptionTier.PLUS,
+      [SubscribeTier.GOLD]: SubscriptionTier.GOLD,
+    };
+    await this.userRepo.update(userId, { subscriptionTier: tierMap[dto.tier] });
+    this.logger.log(`Subscribed: userId=${userId}, tier=${dto.tier}`);
+    return { success: true, tier: dto.tier };
   }
 
   async purchase(
     userId: string,
     dto: PurchaseDto,
-  ): Promise<{ checkoutUrl: string }> {
-    this.logger.log(`Purchase request: userId=${userId}, productId=${dto.productId}`);
-    return { checkoutUrl: 'https://checkout.stripe.com/stub' };
+  ): Promise<{ success: boolean; productId: string }> {
+    const COIN_GRANTS: Record<string, number> = { gift_pack: 20 };
+    const coins = COIN_GRANTS[dto.productId];
+    if (coins) {
+      await this.userRepo
+        .createQueryBuilder()
+        .update(User)
+        .set({ coins: () => `coins + ${coins}` })
+        .where('id = :userId', { userId })
+        .execute();
+    }
+    this.logger.log(`Purchased: userId=${userId}, productId=${dto.productId}`);
+    return { success: true, productId: dto.productId };
   }
 
   async handleWebhook(payload: any): Promise<{ received: boolean }> {

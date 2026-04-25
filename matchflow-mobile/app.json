@@ -6,13 +6,30 @@
     "orientation": "portrait",
     "scheme": "matchflow",
     "userInterfaceStyle": "dark",
-    "splash": { "backgroundColor": "#08080A" },
-    "ios": { "supportsTablet": false, "bundleIdentifier": "com.matchflow.app" },
-    "android": { "adaptiveIcon": { "backgroundColor": "#08080A" }, "package": "com.matchflow.app" },
+    "splash": {
+      "backgroundColor": "#08080A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.matchflow.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#08080A"
+      },
+      "package": "com.matchflow.app"
+    },
     "plugins": [
       "expo-router",
       "expo-location",
-      ["expo-image-picker", { "photosPermission": "Для загрузки фото профиля" }]
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Для загрузки фото профиля"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
     ]
   }
 }
